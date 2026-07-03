@@ -1,0 +1,39 @@
+--- a/drivers/gpu/drm/msm/gpu_dcvs_taoyao.c
++++ b/drivers/gpu/drm/msm/gpu_dcvs_taoyao.c
+@@ -1,5 +1,6 @@
+ /*
+- * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
++ * Copyright (c) 2020-2024, The Linux Foundation. All rights reserved.
++ * GPU DCVS with Overclocking support for Xiaomi 12 Lite (taoyao)
+  *
+  * SPDX-License-Identifier: GPL-2.0-only
+  */
+@@ -20,7 +21,7 @@ static const struct msm_dcvs_core_info gpu_dcvs_info = {
+ 	.max_core_count = 1,
+-	.max_freq = 420000000,  /* 420 MHz baseline */
++	.max_freq = 640000000,  /* 640 MHz OC */
+ 	.min_freq = 110000000,  /* 110 MHz */
+ 	.idle_freq = 110000000,
+-	.freq_tbl_len = 6,
++	.freq_tbl_len = 9,
+ 	.polling_interval = 50,
+@@ -33,11 +34,20 @@ static const unsigned long adreno_freqs[] = {
+ 	220000000,
+ 	266000000,
+ 	330000000,
+ 	380000000,
+ 	420000000,
++	550000000,
++	600000000,
++	640000000,
+ };
+ 
++/* Thermal throttling limits */
++#define GPU_THERMAL_THROTTLE_TEMP 50000  /* 50°C */
++#define GPU_THERMAL_SHUTDOWN_TEMP  60000  /* 60°C */
++
+ static struct devfreq_msm_adreno_tz_data gpu_tz_data = {
+ 	.bus = &bus_client,
++	.throttle_freq = 420000000,  /* Throttle to 420 MHz at 50°C */
++	.shutdown_freq = 110000000,  /* Shutdown at 60°C */
+ };

@@ -1,0 +1,60 @@
+--- a/arch/arm64/boot/dts/qcom/sm8350-taoyao.dtsi
++++ b/arch/arm64/boot/dts/qcom/sm8350-taoyao.dtsi
+@@ -1,6 +1,7 @@
+ // SPDX-License-Identifier: GPL-2.0-only
+ /*
+- * Copyright (c) 2021, The Linux Foundation. All rights reserved.
++ * Copyright (c) 2021-2024, The Linux Foundation. All rights reserved.
++ * GPU Overclocking patch for Xiaomi 12 Lite (taoyao) - 640 MHz OC
+  */
+ 
+ /dts-v1/;
+@@ -8,6 +9,50 @@
+ #include "sm8350.dtsi"
+ #include "sm8350-taoyao-pinctrl.dtsi"
+ 
++&soc {
++	/* GPU Frequency Table for OC Support */
++	gpu_opp_table: gpu-opp-table {
++		compatible = "operating-points-v2";
++		opp-110000000 {
++			opp-hz = /bits/ 64 <110000000>;
++			opp-microvolt = <750000>;
++		};
++		opp-220000000 {
++			opp-hz = /bits/ 64 <220000000>;
++			opp-microvolt = <800000>;
++		};
++		opp-266000000 {
++			opp-hz = /bits/ 64 <266000000>;
++			opp-microvolt = <825000>;
++		};
++		opp-330000000 {
++			opp-hz = /bits/ 64 <330000000>;
++			opp-microvolt = <850000>;
++		};
++		opp-380000000 {
++			opp-hz = /bits/ 64 <380000000>;
++			opp-microvolt = <875000>;
++		};
++		opp-420000000 {
++			opp-hz = /bits/ 64 <420000000>;
++			opp-microvolt = <900000>;
++		};
++		opp-550000000 {
++			opp-hz = /bits/ 64 <550000000>;
++			opp-microvolt = <925000>;
++		};
++		opp-600000000 {
++			opp-hz = /bits/ 64 <600000000>;
++			opp-microvolt = <950000>;
++		};
++		opp-640000000 {
++			opp-hz = /bits/ 64 <640000000>;
++			opp-microvolt = <975000>;
++		};
++	};
++};
+ 
+ &reserved_memory {
+ 	del-node = /"qseecom_region"@;

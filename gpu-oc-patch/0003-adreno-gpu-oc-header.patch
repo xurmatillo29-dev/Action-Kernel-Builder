@@ -1,0 +1,31 @@
+--- a/drivers/gpu/drm/msm/adreno_gpu.h
++++ b/drivers/gpu/drm/msm/adreno_gpu.h
+@@ -1,5 +1,6 @@
+ /*
+- * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
++ * Copyright (c) 2015-2024, The Linux Foundation. All rights reserved.
++ * Adreno GPU Header - Overclocking Support
+  *
+  * SPDX-License-Identifier: GPL-2.0-only
+  */
+@@ -100,7 +101,7 @@ struct adreno_gpu {
+ 	const struct adreno_info *info;
+ 	uint32_t rev;
+ 	uint32_t revn;
+-	uint32_t quirks;
++	uint32_t quirks;
+ 
+ 	/* interesting register offsets to have around: */
+ 	uint32_t REG_SQ_ANON_SURF_SYNC;
+@@ -213,6 +214,11 @@ struct adreno_gpu {
+ 	struct drm_gpu_scheduler *sched;
+ };
+ 
++/* GPU Overclocking Configuration */
++#define GPU_OC_ENABLED         1
++#define GPU_MAX_OC_FREQ        640000000  /* 640 MHz */
++#define GPU_THERMAL_SAFE_FREQ  420000000  /* Fallback to 420 MHz */
++
+ static inline bool adreno_is_a3xx(struct adreno_gpu *gpu)
+ {
+ 	return (gpu->revn >= 300) && (gpu->revn < 400);
