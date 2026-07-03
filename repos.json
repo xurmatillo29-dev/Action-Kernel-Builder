@@ -1,0 +1,34 @@
+[
+  {
+    "kernelSource": {
+      "name": "Xiaomi-12Lite-LineageOS21-GPU-OC",
+      "repo": "https://github.com/LineageOS/android_kernel_xiaomi_taoyao",
+      "branch": "lineage-21.0",
+      "device": "taoyao"
+    },
+    "withKernelSU": false,
+    "toolchains": [
+      {
+        "repo": "https://android.googlesource.com/platform/prebuilts/gas/linux-x86",
+        "branch": "master",
+        "name": "gas"
+      },
+      {
+        "repo": "https://gitlab.com/ThankYouMario/android_prebuilts_clang-standalone/",
+        "branch": "11",
+        "name": "clang"
+      }
+    ],
+    "params": {
+      "ARCH": "arm64",
+      "CROSS_COMPILE": "aarch64-linux-gnu-",
+      "CROSS_COMPILE_ARM32": "arm-linux-gnueabi-",
+      "CROSS_COMPILE_COMPAT": "arm-linux-gnueabi-",
+      "CLANG_TRIPLE": "aarch64-linux-gnu-",
+      "AR": "",
+      "CC": "clang",
+      "KBUILD_BUILD_USER": "XurmatilloKernel",
+      "KBUILD_BUILD_HOST": "BuildServer"
+    }
+  }
+]
