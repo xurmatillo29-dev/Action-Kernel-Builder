@@ -1,0 +1,93 @@
+name: Build Kernel
+
+on: 
+  workflow_dispatch:
+    inputs:
+      DEVICE_NAME:
+        description: 'Qurilma kodi'
+        required: true
+        default: 'taoyao'
+      ANDROID_VERSION:
+        description: 'Android versiyasi'
+        required: true
+        default: 't-oss'
+        type: choice
+        options:
+        - t-oss
+        - s-oss
+        - r-oss
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@main
+
+    - name: Packages
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y git ccache automake flex lzop bison gperf build-essential zip curl zlib1g-dev g++-multilib libxml2-utils bzip2 libbz2-dev libghc-bzlib-dev squashfs-tools pngcrush schedtool dpkg-dev liblz4-tool make optipng maven libssl-dev pwgen libswitch-perl policycoreutils minicom libxml-sax-base-perl libxml-simple-perl bc libx11-dev lib32z1-dev libgl1-mesa-dev xsltproc unzip device-tree-compiler python3 libncurses-dev
+
+    - name: Download Clang Toolchain
+      run: |
+        mkdir -p clang
+        cd clang
+        curl -LO https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r522817.tar.gz
+        tar -xf clang-r522817.tar.gz
+        echo "$GITHUB_WORKSPACE/clang/bin" >> $GITHUB_PATH
+
+    - name: Clone Kernel Source
+      run: |
+        git clone https://github.com/LineageOS/android_kernel_xiaomi_sm8350.git -b lineage-21 kernel-source
+
+    - name: Auto Overclock GPU to 640MHz
+      run: |
+        find kernel-source/arch/arm64/boot/dts/vendor/qcom/ -name "*gpu*.dtsi" -exec sed -i 's/550000000/640000000/g' {} +
+        find kernel-source/arch/arm64/boot/dts/vendor/qcom/ -name "*gpu*.dtsi" -exec sed -i 's/565000000/640000000/g' {} +
+        find kernel-source/arch/arm64/boot/dts/vendor/qcom/ -name "*gpu*.dtsi" -exec sed -i 's/608000000/640000000/g' {} +
+
+    - name: Start Building Kernel
+      run: |
+        cd kernel-source
+        export ARCH=arm64
+        export SUBARCH=arm64
+        export CROSS_COMPILE=aarch64-linux-gnu-
+        export CC=clang
+        export KBUILD_BUILD_USER="${{ github.actor }}"
+        export KBUILD_BUILD_HOST="GitHub-Actions"
+        make taoyao_defconfig
+        make -j$(nproc --all)
+
+    - name: Set Properties
+      id: props
+      run: |
+        echo "date=$(TZ=Asia/Tashkent date +%Y%m%d-%I%M%p)" >> $GITHUB_OUTPUT
+
+    - name: Compressed as Archive
+      run: |
+        cd kernel-source/arch/arm64/boot || exit 1
+        zip -r9 "${{ github.event.inputs.DEVICE_NAME }}-${{ steps.props.outputs.date }}.zip" ./Image ./Image.gz* ./dtb*
+
+    - name: Release
+      uses: ncipollo/release-action@v1.12.0
+      with:
+        artifacts: |
+          kernel-source/arch/arm64/boot/*.zip
+        name: Compiled Kernel for ${{ github.event.inputs.DEVICE_NAME }} - ${{ steps.props.outputs.date }}
+        draft: false
+        prerelease: false
+        tag: ${{ github.run_id }}-${{ steps.props.outputs.date }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+        body: |
+          ## Xiaomi 12 Lite Custom Kernel
+          - GPU Overclock: 640 MHz muvaffaqiyatli bajarildi.
+          - AnyKernel3 zip orqali o'rnating.
+
+    - name: Link of Release
+      run: |
+        echo "Sizning kernelingiz tayyor!"
+        echo "https://github.com/${GITHUB_REPOSITORY}/releases/tag/${{ github.run_id }}-${{ steps.props.outputs.date }}"
