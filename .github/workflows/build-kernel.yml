@@ -1,0 +1,186 @@
+name: Build Kernel
+
+on: 
+  workflow_dispatch:
+    inputs:
+      DEVICE_NAME:
+        description: 'Qurilma kodi'
+        required: true
+        default: 'taoyao'
+      KERNEL_BRANCH:
+        description: 'Kernel shoxasi'
+        required: true
+        default: 'lineage-20.0'
+        type: choice
+        options:
+        - lineage-20.0
+        - lineage-19.0
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@main
+
+    - name: Install Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          git ccache automake flex lzop bison gperf build-essential \
+          zip curl zlib1g-dev g++-multilib libxml2-utils bzip2 \
+          libbz2-dev libghc-bzlib-dev squashfs-tools pngcrush \
+          schedtool dpkg-dev liblz4-tool make optipng maven \
+          libssl-dev pwgen libswitch-perl policycoreutils minicom \
+          libxml-sax-base-perl libxml-simple-perl bc libx11-dev \
+          lib32z1-dev libgl1-mesa-dev xsltproc unzip \
+          device-tree-compiler python3 libncurses-dev \
+          gcc-aarch64-linux-gnu bc kmod cpio
+
+    - name: Download Clang Toolchain
+      run: |
+        mkdir -p clang
+        cd clang
+        echo "📥 Clang toolchain yuklanmoqda..."
+        curl -L https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r522817.tar.gz -o clang-r522817.tar.gz
+        tar -xzf clang-r522817.tar.gz
+        echo "$GITHUB_WORKSPACE/clang/bin" >> $GITHUB_PATH
+        clang --version
+
+    - name: Clone Kernel Source
+      run: |
+        echo "📦 Kernel source klonlanmoqda (${{ github.event.inputs.KERNEL_BRANCH }})..."
+        git clone --depth=1 https://github.com/LineageOS/android_kernel_xiaomi_sm8350.git \
+          -b ${{ github.event.inputs.KERNEL_BRANCH }} kernel-source
+        cd kernel-source
+        echo "✅ Kernel source yuklab olindi"
+        ls -la
+
+    - name: Show Available Defconfigs
+      run: |
+        cd kernel-source
+        echo "📋 Mavjud defconfig fayllar:"
+        find arch/arm64/configs -name "*defconfig" 2>/dev/null | head -10 || echo "configs direktriyasi yo'q"
+        ls arch/arm64/configs/ 2>/dev/null || ls arch/arm64/ 2>/dev/null || echo "arch/arm64 yo'q"
+
+    - name: GPU Overclocking Patch
+      continue-on-error: true
+      run: |
+        cd kernel-source
+        echo "🔧 GPU overclocking patchi qo'shilmoqda..."
+        
+        # GPU fayllarini topish
+        find arch -type f \( -name "*gpu*.dtsi" -o -name "*adreno*.dtsi" -o -name "*mali*.dtsi" \) | while read file; do
+          echo "  Patching: $file"
+          sed -i 's/550000000/640000000/g' "$file" 2>/dev/null || true
+          sed -i 's/565000000/640000000/g' "$file" 2>/dev/null || true
+          sed -i 's/608000000/640000000/g' "$file" 2>/dev/null || true
+          sed -i 's/627000000/640000000/g' "$file" 2>/dev/null || true
+        done
+        
+        echo "✅ GPU patch tugadi"
+
+    - name: Build Kernel
+      run: |
+        cd kernel-source
+        export ARCH=arm64
+        export SUBARCH=arm64
+        export CROSS_COMPILE=aarch64-linux-gnu-
+        export CC=clang
+        export CLANG_TRIPLE=aarch64-linux-gnu-
+        export KBUILD_BUILD_USER="${{ github.actor }}"
+        export KBUILD_BUILD_HOST="GitHub-Actions"
+        
+        echo "🔨 Kernel build boshlanyapti..."
+        echo "Device: ${{ github.event.inputs.DEVICE_NAME }}"
+        
+        # Defconfig yaratish yoki mavjudni foydalanish
+        if [ -f "arch/arm64/configs/${{ github.event.inputs.DEVICE_NAME }}_defconfig" ]; then
+          make ${{ github.event.inputs.DEVICE_NAME }}_defconfig
+        elif [ -f "arch/arm64/configs/lineageos_defconfig" ]; then
+          make lineageos_defconfig
+        else
+          echo "⚠️ Defconfig topilmadi, generic konfiguratsiyani foydalanaylik..."
+          make defconfig
+        fi
+        
+        make -j$(nproc --all) 2>&1 | tee build.log
+        
+        if [ ! -f "arch/arm64/boot/Image" ]; then
+          echo "❌ Build failed - Image file topilmadi!"
+          tail -50 build.log
+          exit 1
+        fi
+        
+        echo "✅ Build muvaffaqiyatli tugadi!"
+
+    - name: Check Build Output
+      run: |
+        cd kernel-source/arch/arm64/boot
+        echo "📦 Build output fayllar:"
+        ls -lh Image* dtb* 2>/dev/null || echo "Fayllar topilmadi"
+
+    - name: Set Properties
+      id: props
+      run: |
+        echo "date=$(TZ=Asia/Tashkent date +%Y%m%d-%H%M%S)" >> $GITHUB_OUTPUT
+        echo "timestamp=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
+
+    - name: Create Release Package
+      run: |
+        cd kernel-source/arch/arm64/boot
+        
+        echo "📦 Kernel zip yaratilmoqda..."
+        
+        # Zip yaratish
+        zip -r9 "${{ github.event.inputs.DEVICE_NAME }}-los21-${{ steps.props.outputs.date }}.zip" \
+          Image Image.gz* dtb* dts* 2>/dev/null || \
+        zip -r9 "${{ github.event.inputs.DEVICE_NAME }}-los21-${{ steps.props.outputs.date }}.zip" \
+          Image Image.gz* 2>/dev/null || true
+        
+        echo "✅ Zip fayli yaratildi"
+        ls -lh *.zip
+
+    - name: Upload to Release
+      uses: ncipollo/release-action@v1.12.0
+      with:
+        artifacts: kernel-source/arch/arm64/boot/*.zip
+        name: "LineageOS 21 Kernel - ${{ steps.props.outputs.date }}"
+        draft: false
+        prerelease: false
+        tag: "kernel-${{ github.run_id }}"
+        token: ${{ secrets.GITHUB_TOKEN }}
+        body: |
+          ## 📱 Xiaomi 12 Lite - LineageOS 21 Custom Kernel
+          
+          **Tuzildi:** ${{ steps.props.outputs.timestamp }}
+          **Tuzuvchi:** ${{ github.actor }}
+          **Device:** taoyao
+          **OS:** LineageOS 21 (Android 14)
+          **GPU Overclock:** 640 MHz
+          
+          ### O'rnatish Qadamlari:
+          1. OrangeFox Recovery orqali qayta ishlanadi
+          2. Kernel ZIP faylni flash qiling
+          3. Qayta ishlanadi va foydalaning
+          
+          ⚠️ **Ogohlik:** 
+          - Overclocking qurilmangizni ishonchsiz qilishi mumkin
+          - Stability test qilib ko'ring
+          - Originalini saqlab oling!
+
+    - name: Success
+      if: success()
+      run: |
+        echo "✅ BUILD MUVAFFAQIYATLI!"
+        echo "📥 Release: https://github.com/${{ github.repository }}/releases"
+
+    - name: Failure Notification
+      if: failure()
+      run: |
+        echo "❌ BUILD FAILED"
+        echo "Xatolik log'ini tekshiring va qayta harakat qiling"
+        exit 1
